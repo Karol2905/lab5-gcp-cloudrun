@@ -1,0 +1,36 @@
+{
+  "name": "portal-notas",
+  "version": "1.0.0",
+  "description": "Aplicacion de ejemplo del Laboratorio 5 - Azure App Service, IaC y CI/CD",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand",
+    "test:cov": "jest --runInBand --coverage",
+    "empaquetar": "bash scripts/empaquetar.sh"
+  },
+  "dependencies": {
+    "express": "5.2.1"
+  },
+  "devDependencies": {
+    "jest": "30.5.2",
+    "supertest": "7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 70,
+        "functions": 70
+      }
+    }
+  },
+  "license": "MIT"
+}

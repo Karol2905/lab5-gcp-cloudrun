@@ -1,0 +1,119 @@
+###############################################################################
+# Pipeline de CI/CD del Laboratorio 5
+#
+# Hace exactamente lo mismo que usted hizo a mano en la Parte 1 de la guia:
+#   instalar dependencias -> ejecutar pruebas -> empaquetar el ZIP -> desplegar
+#
+# La diferencia es quien lo hace y cuando: aqui lo hace un runner efimero de
+# GitHub cada vez que alguien empuja a main, siempre igual, sin olvidos.
+#
+# Autenticacion: publish profile guardado como secreto. No usamos Service
+# Principal ni OIDC porque una suscripcion de estudiante no suele permitir
+# crear registros de aplicacion en Entra ID.
+###############################################################################
+
+name: CI/CD - Portal de notas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestana Actions
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  # ===========================================================================
+  # JOB 1 - Integracion continua: construir y probar.
+  # Corre en cada push Y en cada pull request. Si algo falla aqui, no hay
+  # despliegue: esa es toda la idea de la CI.
+  # ===========================================================================
+  construir-y-probar:
+    name: Construir y probar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm # guarda ~/.npm entre ejecuciones: el npm ci baja de minutos a segundos
+
+      - name: Instalar dependencias
+        # npm ci borra node_modules y respeta package-lock.json al pie de la
+        # letra. Es reproducible; npm install no lo es.
+        run: npm ci
+
+      - name: Ejecutar pruebas
+        run: npm test
+
+      - name: Cobertura
+        run: npm run test:cov
+
+      - name: Construir el paquete de despliegue
+        # Mismo criterio que scripts/empaquetar.sh: solo lo que se ejecuta.
+        run: |
+          mkdir -p paquete
+          cp -r src public package.json package-lock.json paquete/
+          cd paquete
+          npm ci --omit=dev --no-audit --no-fund
+          zip -rq ../deploy.zip .
+          cd ..
+          ls -lh deploy.zip
+
+      - name: Publicar el artefacto
+        # El artefacto es el puente entre los dos jobs: lo que se despliega es
+        # exactamente el ZIP que paso las pruebas, no una reconstruccion.
+        uses: actions/upload-artifact@v4
+        with:
+          name: paquete-app
+          path: deploy.zip
+          retention-days: 5
+
+  # ===========================================================================
+  # JOB 2 - Despliegue continuo.
+  # needs: obliga a esperar al job anterior. if: limita el despliegue a los
+  # push sobre main, para que un pull request se pruebe pero no publique nada.
+  # ===========================================================================
+  desplegar:
+    name: Desplegar en Azure App Service
+    runs-on: ubuntu-latest
+    needs: construir-y-probar
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: paquete-app
+
+      - name: Desplegar en App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy.zip
+
+      - name: Prueba de humo contra el sitio publicado
+        # Un despliegue "exitoso" que deja el sitio caido no sirve de nada.
+        # Se reintenta porque en el plan F1 la aplicacion puede estar dormida
+        # y el primer arranque en frio toma unos segundos.
+        run: |
+          URL="https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          echo "Verificando $URL/health"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 20 "$URL/health"; then
+              echo ""
+              echo "Sitio arriba en el intento $i"
+              exit 0
+            fi
+            echo "Intento $i sin respuesta; esperando 15 s"
+            sleep 15
+          done
+          echo "El sitio no respondio despues de 6 intentos"
+          exit 1

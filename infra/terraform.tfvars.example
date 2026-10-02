@@ -1,0 +1,6 @@
+# Copie este archivo como terraform.tfvars y complete sus valores.
+# terraform.tfvars esta en .gitignore: no se sube al repositorio.
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+usuario         = "jperez"
+region          = "eastus2"

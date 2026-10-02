@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ========================================================================
+     PERSONALICE LAS DOS LÍNEAS MARCADAS CON «SU NOMBRE».
+     Esta página es a la vez la aplicación desplegada y el material de
+     estudio del laboratorio: explica qué es la app, cómo está construida,
+     cómo se prueba, cómo se empaqueta y cómo llega a Azure.
+     ===================================================================== -->
+<title>Portal de notas · Laboratorio 5</title>
+<style>
+  :root{
+    --azul:#2E74B5; --azul-osc:#1F4E79; --tinta:#1b2733; --gris:#5b6b7b;
+    --borde:#dbe4ec; --fondo:#f4f7fa; --panel:#ffffff; --suave:#f7fafd;
+    --teal:#0F766E; --teal-suave:#e9f4f2; --ambar:#B8860B; --ambar-suave:#fdf3e0;
+    --morado:#6F42C1; --morado-suave:#f3ecfa; --rojo:#b04a4a;
+    --codigo-bg:#1E1E1E; --codigo-fg:#e8eaed; --codigo-com:#9AA7B4;
+    --mono:ui-monospace,SFMono-Regular,Consolas,"DejaVu Sans Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-tema="claro"]){
+      --tinta:#e6edf3; --gris:#9fb0c0; --borde:#2b3948; --fondo:#0f1720;
+      --panel:#16212c; --suave:#1b2733; --azul:#6fb3ec; --azul-osc:#9ccbf5;
+      --teal-suave:#14302c; --ambar-suave:#332a15; --morado-suave:#271f38;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:74px}
+  body{margin:0;background:var(--fondo);color:var(--tinta);line-height:1.6;
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+
+  /* ---------- encabezado ---------- */
+  header{background:linear-gradient(135deg,#1F4E79,#2E74B5);color:#fff;padding:34px 20px 28px}
+  .contenido{max-width:960px;margin:0 auto}
+  header h1{margin:0 0 6px;font-size:1.75rem;letter-spacing:-.01em}
+  header .sub{margin:0;opacity:.92;font-size:.98rem}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+        border-radius:999px;padding:4px 12px;font-size:.78rem;font-family:var(--mono)}
+
+  /* ---------- navegación ---------- */
+  nav{position:sticky;top:0;z-index:20;background:var(--panel);
+      border-bottom:1px solid var(--borde);overflow-x:auto}
+  nav ul{max-width:960px;margin:0 auto;padding:0 20px;display:flex;gap:4px;list-style:none;
+         white-space:nowrap}
+  nav a{display:block;padding:12px 10px;color:var(--gris);text-decoration:none;
+        font-size:.86rem;border-bottom:2px solid transparent}
+  nav a:hover{color:var(--azul);border-bottom-color:var(--azul)}
+
+  main{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+  section{margin-bottom:38px}
+  h2{font-size:1.25rem;color:var(--azul);margin:0 0 4px;letter-spacing:-.01em}
+  .lead{color:var(--gris);margin:0 0 16px;font-size:.95rem}
+  h3{font-size:1rem;margin:22px 0 8px}
+  p{margin:0 0 12px}
+
+  .panel{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:20px 22px}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
+  .dato{background:var(--suave);border:1px solid var(--borde);border-radius:9px;padding:11px 13px}
+  .dato span{display:block;font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;color:var(--gris)}
+  .dato strong{font-family:var(--mono);font-size:.92rem;word-break:break-all;font-weight:600}
+
+  table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:.9rem}
+  th{background:var(--azul);color:#fff;text-align:left;padding:8px 10px;font-size:.82rem;font-weight:600}
+  td{border:1px solid var(--borde);padding:8px 10px;vertical-align:top}
+  tr:nth-child(even) td{background:var(--suave)}
+  code{font-family:var(--mono);font-size:.87em;background:rgba(127,127,127,.14);
+       padding:1px 5px;border-radius:4px}
+  pre{background:var(--codigo-bg);color:var(--codigo-fg);padding:14px 16px;border-radius:9px;
+      font-family:var(--mono);font-size:.82rem;line-height:1.55;overflow-x:auto;margin:10px 0}
+  pre .c{color:var(--codigo-com)}
+
+  .aviso{border-left:5px solid var(--azul);background:var(--suave);
+         border-radius:0 9px 9px 0;padding:12px 16px;margin:14px 0;font-size:.92rem}
+  .aviso.clave{border-left-color:var(--ambar);background:var(--ambar-suave)}
+  .aviso.nota{border-left-color:var(--teal);background:var(--teal-suave)}
+  .aviso b{color:var(--azul-osc)}
+  .aviso.clave b{color:var(--ambar)} .aviso.nota b{color:var(--teal)}
+
+  /* ---------- probador de la API ---------- */
+  label{display:block;font-size:.82rem;color:var(--gris);margin:12px 0 4px}
+  input{width:100%;padding:9px 11px;border:1px solid var(--borde);border-radius:7px;
+        font:inherit;font-size:.93rem;background:var(--panel);color:var(--tinta)}
+  .botones{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  button{background:var(--azul);color:#fff;border:0;border-radius:7px;padding:9px 16px;
+         font:inherit;font-size:.9rem;cursor:pointer}
+  button.sec{background:transparent;color:var(--azul);border:1px solid var(--azul)}
+  button:hover{filter:brightness(1.08)}
+
+  svg{width:100%;height:auto;display:block}
+  .figura{background:var(--panel);border:1px solid var(--borde);border-radius:12px;
+          padding:18px;margin:14px 0}
+  .pie{font-size:.8rem;color:var(--gris);text-align:center;margin:10px 0 0}
+
+  footer{border-top:1px solid var(--borde);background:var(--panel);
+         padding:22px 20px;text-align:center;color:var(--gris);font-size:.85rem}
+  @media (max-width:560px){ header h1{font-size:1.4rem} .panel{padding:16px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="contenido">
+    <!-- ► SU NOMBRE (1 de 2) -->
+    <h1>Portal de notas · Nombre Apellido</h1>
+    <p class="sub">Laboratorio 5 — Azure App Service, infraestructura como código y CI/CD ·
+       Cloud Computing y DevOps, PEMU 2026</p>
+    <div class="chips">
+      <span class="chip" id="chip-version">versión …</span>
+      <span class="chip" id="chip-node">node …</span>
+      <span class="chip" id="chip-sitio">sitio …</span>
+      <span class="chip" id="chip-entorno">entorno …</span>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <ul>
+    <li><a href="#que-es">Qué es</a></li>
+    <li><a href="#arquitectura">Arquitectura</a></li>
+    <li><a href="#codigo">Código</a></li>
+    <li><a href="#api">API</a></li>
+    <li><a href="#pruebas">Pruebas</a></li>
+    <li><a href="#despliegue">Despliegue</a></li>
+    <li><a href="#iac">Terraform</a></li>
+    <li><a href="#cicd">CI/CD</a></li>
+    <li><a href="#instancia">Esta instancia</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<!-- =================================================== QUÉ ES -->
+<section id="que-es">
+  <h2>Qué es esta aplicación</h2>
+  <p class="lead">Una excusa honesta para aprender el ciclo de entrega completo.</p>
+  <div class="panel">
+    <p>El <b>portal de notas</b> es una aplicación web mínima en Node.js con Express. Registra
+       estudiantes con sus calificaciones en la escala colombiana (0.0 a 5.0), calcula el promedio,
+       lo traduce a una escala de letras y dice si aprobó. Nada más.</p>
+    <p>Esa sencillez es deliberada: el objetivo del laboratorio no es la aplicación, sino <b>todo lo
+       que le pasa alrededor</b> — cómo se instala, cómo se prueba, cómo se empaqueta, cómo llega a
+       Azure y cómo se repite ese camino sin intervención humana. Aun así, la aplicación tiene lo
+       justo para que cada paso tenga sentido: lógica de negocio con casos de frontera, validación
+       que debe devolver <code>400</code> y no <code>500</code>, una sonda de salud que consulta el
+       pipeline, y unas variables de entorno que solo existen cuando corre en la nube.</p>
+    <div class="rejilla">
+      <div class="dato"><span>Lenguaje</span><strong>Node.js 22 LTS</strong></div>
+      <div class="dato"><span>Framework</span><strong>Express 5</strong></div>
+      <div class="dato"><span>Pruebas</span><strong>Jest + Supertest</strong></div>
+      <div class="dato"><span>Infraestructura</span><strong>Terraform · azurerm</strong></div>
+      <div class="dato"><span>Pipeline</span><strong>GitHub Actions</strong></div>
+      <div class="dato"><span>Plataforma</span><strong>App Service · plan F1</strong></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== ARQUITECTURA -->
+<section id="arquitectura">
+  <h2>Arquitectura de la aplicación</h2>
+  <p class="lead">Cuatro capas, cada una con una sola responsabilidad.</p>
+
+  <div class="figura">
+    <svg viewBox="0 0 900 450" role="img" aria-label="Capas de la aplicación">
+      <defs>
+        <marker id="f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+                orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5b6b7b"/></marker>
+      </defs>
+      <rect x="8" y="8" width="604" height="376" rx="12" fill="none" stroke="#b9c6d3"
+            stroke-dasharray="7 5"/>
+      <text x="28" y="36" font-size="15" font-weight="700" fill="#2E74B5"
+            font-family="system-ui">PROCESO NODE.JS</text>
+
+      <rect x="28" y="52" width="250" height="86" rx="9" fill="#e8f1fa" stroke="#2E74B5"/>
+      <text x="153" y="82" font-size="16" font-weight="700" text-anchor="middle"
+            fill="#1b2733" font-family="system-ui">src/server.js</text>
+      <text x="153" y="104" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">lee process.env.PORT</text>
+      <text x="153" y="122" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">y llama a app.listen()</text>
+
+      <line x1="153" y1="140" x2="153" y2="168" stroke="#5b6b7b" stroke-width="2"
+            marker-end="url(#f1)"/>
+
+      <rect x="28" y="172" width="250" height="196" rx="9" fill="#ffffff" stroke="#2E74B5"/>
+      <text x="153" y="200" font-size="16" font-weight="700" text-anchor="middle"
+            fill="#1b2733" font-family="system-ui">src/app.js</text>
+      <text x="153" y="220" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">rutas, JSON, archivos estáticos</text>
+      <rect x="48" y="234" width="210" height="34" rx="6" fill="#f7fafd" stroke="#dbe4ec"/>
+      <text x="153" y="256" font-size="12.5" text-anchor="middle" fill="#1b2733"
+            font-family="monospace">GET /health</text>
+      <rect x="48" y="274" width="210" height="34" rx="6" fill="#f7fafd" stroke="#dbe4ec"/>
+      <text x="153" y="296" font-size="12.5" text-anchor="middle" fill="#1b2733"
+            font-family="monospace">GET /api/version</text>
+      <rect x="48" y="314" width="210" height="34" rx="6" fill="#f7fafd" stroke="#dbe4ec"/>
+      <text x="153" y="336" font-size="12.5" text-anchor="middle" fill="#1b2733"
+            font-family="monospace">/api/estudiantes</text>
+
+      <line x1="278" y1="270" x2="324" y2="270" stroke="#5b6b7b" stroke-width="2"
+            marker-end="url(#f1)"/>
+
+      <rect x="330" y="172" width="260" height="120" rx="9" fill="#e9f4f2" stroke="#0F766E"/>
+      <text x="460" y="202" font-size="16" font-weight="700" text-anchor="middle"
+            fill="#1b2733" font-family="system-ui">src/lib/notas.js</text>
+      <text x="460" y="224" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">lógica de negocio pura</text>
+      <text x="460" y="246" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">promedio · escalaLetra · aprobado</text>
+      <text x="460" y="272" font-size="12" text-anchor="middle" fill="#0F766E"
+            font-family="system-ui" font-weight="600">no sabe qué es HTTP</text>
+
+      <rect x="330" y="52" width="260" height="86" rx="9" fill="#fdf3e0" stroke="#B8860B"/>
+      <text x="460" y="82" font-size="16" font-weight="700" text-anchor="middle"
+            fill="#1b2733" font-family="system-ui">public/index.html</text>
+      <text x="460" y="104" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">esta misma página</text>
+      <text x="460" y="122" font-size="12.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">servida como archivo estático</text>
+
+      <rect x="642" y="52" width="230" height="240" rx="9" fill="#f3ecfa" stroke="#6F42C1"/>
+      <text x="757" y="82" font-size="15" font-weight="700" text-anchor="middle"
+            fill="#6F42C1" font-family="system-ui">QUIÉN LO PRUEBA</text>
+      <rect x="662" y="100" width="190" height="72" rx="7" fill="#ffffff" stroke="#6F42C1"/>
+      <text x="757" y="126" font-size="13.5" font-weight="700" text-anchor="middle"
+            fill="#1b2733" font-family="system-ui">tests/notas.test.js</text>
+      <text x="757" y="148" font-size="12" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">unitarias · sin servidor</text>
+      <rect x="662" y="186" width="190" height="86" rx="7" fill="#ffffff" stroke="#6F42C1"/>
+      <text x="757" y="212" font-size="13.5" font-weight="700" text-anchor="middle"
+            fill="#1b2733" font-family="system-ui">tests/api.test.js</text>
+      <text x="757" y="234" font-size="12" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">integración · Supertest</text>
+      <text x="757" y="254" font-size="12" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">importa app.js, no server.js</text>
+
+      <text x="450" y="416" font-size="13.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">Separar el proceso (server.js) de la aplicación (app.js) es lo que permite probarla</text>
+      <text x="450" y="436" font-size="13.5" text-anchor="middle" fill="#5b6b7b"
+            font-family="system-ui">en memoria, sin abrir un puerto real en cada ejecución.</text>
+    </svg>
+    <p class="pie">Figura 1. Las capas de la aplicación y quién prueba cada una.</p>
+  </div>
+
+  <div class="aviso clave">
+    <b>El detalle que más veces rompe el despliegue.</b> App Service arranca el contenedor, le
+    inyecta la variable <code>PORT</code> y espera que el proceso escuche <b>ahí</b>. Si el código
+    fija <code>3000</code> a la fuerza, el despliegue termina en verde y el sitio responde
+    «Application Error»: el ZIP llegó bien, pero nadie contesta donde la plataforma pregunta.
+  </div>
+  <pre><span class="c">// src/server.js — una línea, dos entornos</span>
+const PUERTO = process.env.PORT || 3000;  <span class="c">// en Azure toma PORT; en su máquina, 3000</span>
+app.listen(PUERTO);</pre>
+</section>
+
+<!-- =================================================== CÓDIGO -->
+<section id="codigo">
+  <h2>Estructura del repositorio</h2>
+  <p class="lead">Cada carpeta tiene un destino distinto: unas se ejecutan, otras se quedan atrás.</p>
+  <div class="panel">
+    <table>
+      <tr><th>Ruta</th><th>Qué contiene</th><th>¿Va al ZIP?</th></tr>
+      <tr><td><code>src/lib/notas.js</code></td><td>Lógica de negocio pura: promedio, escala de letras, validación</td><td>Sí</td></tr>
+      <tr><td><code>src/app.js</code></td><td>Aplicación Express: rutas y traducción de errores a códigos HTTP</td><td>Sí</td></tr>
+      <tr><td><code>src/server.js</code></td><td>El proceso: escucha en <code>PORT</code> y cierra bien con SIGTERM</td><td>Sí</td></tr>
+      <tr><td><code>public/</code></td><td>Esta página, servida como archivo estático</td><td>Sí</td></tr>
+      <tr><td><code>tests/</code></td><td>Pruebas unitarias y de integración</td><td>No</td></tr>
+      <tr><td><code>infra/</code></td><td>Terraform: grupo de recursos, plan F1 y Web App</td><td>No</td></tr>
+      <tr><td><code>.github/workflows/</code></td><td>El pipeline de CI/CD</td><td>No</td></tr>
+      <tr><td><code>scripts/empaquetar.sh</code></td><td>Construye <code>deploy.zip</code></td><td>No</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- =================================================== API -->
+<section id="api">
+  <h2>La API, en vivo</h2>
+  <p class="lead">Los botones de abajo hacen peticiones reales contra esta misma instancia.</p>
+
+  <div class="panel">
+    <table>
+      <tr><th>Método y ruta</th><th>Qué responde</th><th>Para qué se usa</th></tr>
+      <tr><td><code>GET /health</code></td><td><code>{ estado, version, uptimeSegundos }</code></td>
+          <td>Sonda de salud: la consulta usted, y también el paso de prueba de humo del pipeline</td></tr>
+      <tr><td><code>GET /api/version</code></td><td>Versión, Node, sitio, instancia y región</td>
+          <td>Saber <em>quién</em> respondió: es la evidencia de que corre en Azure</td></tr>
+      <tr><td><code>GET /api/estudiantes</code></td><td>Lista registrada en memoria</td>
+          <td>Estado del proceso actual; se pierde en cada reinicio</td></tr>
+      <tr><td><code>POST /api/estudiantes</code></td><td><code>201</code> con el reporte, o <code>400</code></td>
+          <td>Donde se ve que un error de negocio no es un error del servidor</td></tr>
+      <tr><td><code>GET /api/estudiantes/:id</code></td><td>Un estudiante, o <code>404</code></td>
+          <td>Caso de recurso inexistente</td></tr>
+    </table>
+
+    <h3>Pruébelo</h3>
+    <label for="nombre">Nombre del estudiante</label>
+    <input id="nombre" value="Ana Gómez">
+    <label for="notas">Notas separadas por coma (0.0 a 5.0)</label>
+    <input id="notas" value="4.0, 4.6, 3.8">
+    <div class="botones">
+      <button onclick="registrar()">POST /api/estudiantes</button>
+      <button class="sec" onclick="llamar('/api/estudiantes')">GET lista</button>
+      <button class="sec" onclick="llamar('/health')">GET /health</button>
+      <button class="sec" onclick="llamar('/api/version')">GET /api/version</button>
+      <button class="sec" onclick="invalido()">Enviar una nota inválida</button>
+    </div>
+    <pre id="salida">Sin peticiones todavía.</pre>
+    <div class="aviso nota">
+      <b>Qué observar.</b> Con una nota fuera del rango 0–5 la respuesta es <code>400</code> con un
+      mensaje legible, no un <code>500</code>. La validación vive en <code>src/lib/notas.js</code>
+      y la capa HTTP solo traduce la excepción: por eso la misma regla se puede probar sin
+      levantar un servidor.
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== PRUEBAS -->
+<section id="pruebas">
+  <h2>Cómo se prueba</h2>
+  <p class="lead">Veintidós pruebas en dos niveles, y ninguna necesita Azure.</p>
+  <div class="panel">
+    <table>
+      <tr><th></th><th>Unitarias</th><th>Integración</th></tr>
+      <tr><td>Qué prueban</td><td>Una función aislada</td><td>Varias piezas trabajando juntas</td></tr>
+      <tr><td>Herramienta</td><td>Jest</td><td>Jest + Supertest</td></tr>
+      <tr><td>Ejemplo</td><td>2.99 no aprueba, 3.00 sí</td><td>Un cuerpo inválido devuelve 400</td></tr>
+      <tr><td>Velocidad</td><td>Milisegundos</td><td>Decenas de milisegundos</td></tr>
+    </table>
+    <pre>npm ci            <span class="c"># instala exactamente lo del package-lock.json</span>
+npm test          <span class="c"># 22 pruebas</span>
+npm run test:cov  <span class="c"># las mismas, con cobertura</span></pre>
+    <p><code>src/server.js</code> aparece con 0 % de cobertura, y está bien: ese archivo solo abre
+       un puerto. La cobertura que importa es la de la lógica de negocio, por encima del 95 %.</p>
+  </div>
+</section>
+
+<!-- =================================================== DESPLIEGUE -->
+<section id="despliegue">
+  <h2>Del código a Azure</h2>
+  <p class="lead">Lo que se despliega no es el repositorio: es un artefacto.</p>
+
+  <div class="figura">
+    <svg viewBox="0 0 900 250" role="img" aria-label="Del código al artefacto desplegado">
+      <defs>
+        <marker id="f2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+                orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1b2733"/></marker>
+      </defs>
+      <g font-family="system-ui">
+        <rect x="10" y="40" width="152" height="76" rx="8" fill="#e8f1fa" stroke="#2E74B5"/>
+        <text x="86" y="72" font-size="14.5" font-weight="700" text-anchor="middle" fill="#1b2733">código</text>
+        <text x="86" y="94" font-size="12" text-anchor="middle" fill="#5b6b7b">git clone</text>
+
+        <rect x="188" y="40" width="152" height="76" rx="8" fill="#f2f7fc" stroke="#2E74B5"/>
+        <text x="264" y="72" font-size="14.5" font-weight="700" text-anchor="middle" fill="#1b2733">npm ci</text>
+        <text x="264" y="94" font-size="12" text-anchor="middle" fill="#5b6b7b">versiones exactas</text>
+
+        <rect x="366" y="40" width="152" height="76" rx="8" fill="#f3ecfa" stroke="#6F42C1"/>
+        <text x="442" y="72" font-size="14.5" font-weight="700" text-anchor="middle" fill="#1b2733">npm test</text>
+        <text x="442" y="94" font-size="12" text-anchor="middle" fill="#5b6b7b">22 pruebas</text>
+
+        <rect x="544" y="40" width="152" height="76" rx="8" fill="#e9f4f2" stroke="#0F766E"/>
+        <text x="620" y="72" font-size="14.5" font-weight="700" text-anchor="middle" fill="#1b2733">deploy.zip</text>
+        <text x="620" y="94" font-size="12" text-anchor="middle" fill="#5b6b7b">solo lo que se ejecuta</text>
+
+        <rect x="722" y="40" width="168" height="76" rx="8" fill="#fdf3e0" stroke="#B8860B"/>
+        <text x="806" y="72" font-size="14.5" font-weight="700" text-anchor="middle" fill="#1b2733">App Service</text>
+        <text x="806" y="94" font-size="12" text-anchor="middle" fill="#5b6b7b">/home/site/wwwroot</text>
+
+        <line x1="162" y1="78" x2="182" y2="78" stroke="#1b2733" stroke-width="2" marker-end="url(#f2)"/>
+        <line x1="340" y1="78" x2="360" y2="78" stroke="#1b2733" stroke-width="2" marker-end="url(#f2)"/>
+        <line x1="518" y1="78" x2="538" y2="78" stroke="#1b2733" stroke-width="2" marker-end="url(#f2)"/>
+        <line x1="696" y1="78" x2="716" y2="78" stroke="#1b2733" stroke-width="2" marker-end="url(#f2)"/>
+
+        <text x="450" y="148" font-size="13.5" text-anchor="middle" fill="#5b6b7b">Si las pruebas fallan, el artefacto no llega a existir. Esa es toda la idea de la integración continua.</text>
+
+        <rect x="10" y="168" width="430" height="70" rx="8" fill="#f6fbf8" stroke="#0F766E"/>
+        <text x="30" y="192" font-size="13" font-weight="700" fill="#0F766E">SÍ ENTRA</text>
+        <text x="30" y="214" font-size="12.5" fill="#1b2733" font-family="monospace">src/ · public/ · package.json · node_modules (solo prod)</text>
+
+        <rect x="460" y="168" width="430" height="70" rx="8" fill="#fdf7f7" stroke="#b04a4a"/>
+        <text x="480" y="192" font-size="13" font-weight="700" fill="#b04a4a">NO ENTRA</text>
+        <text x="480" y="214" font-size="12.5" fill="#1b2733" font-family="monospace">tests/ · jest · supertest · infra/ · .github/ · .git/</text>
+      </g>
+    </svg>
+    <p class="pie">Figura 2. El artefacto es la salida de la construcción, no el repositorio comprimido.</p>
+  </div>
+
+  <div class="panel">
+    <h3>El despliegue manual, comando por comando</h3>
+    <pre>bash scripts/empaquetar.sh        <span class="c"># genera deploy.zip</span>
+az webapp deploy -g $RG -n $APP \
+  --src-path deploy.zip --type zip
+
+curl -s https://$APP.azurewebsites.net/health</pre>
+    <div class="aviso">
+      <b>Por qué <code>SCM_DO_BUILD_DURING_DEPLOYMENT=false</code>.</b> Con el valor por omisión,
+      App Service ejecuta Oryx dentro del sitio para instalar dependencias otra vez. Eso significa
+      construir dos veces y, peor, construir en un entorno distinto del que usted probó. Como el ZIP
+      ya trae <code>node_modules</code> verificado, se desactiva: se despliega el artefacto, no el
+      código fuente.
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== IaC -->
+<section id="iac">
+  <h2>La infraestructura, escrita</h2>
+  <p class="lead">Terraform no dice «cree»: dice «esto debe existir».</p>
+  <div class="panel">
+    <p>Los recursos de Azure que sostienen esta página no se crearon a mano en el portal: están
+       declarados en <code>infra/main.tf</code> y versionados junto al código. Terraform compara lo
+       declarado con su estado y con lo que realmente hay en Azure, y aplica solo la diferencia.</p>
+    <table>
+      <tr><th>Recurso</th><th>Para qué</th></tr>
+      <tr><td><code>azurerm_resource_group</code></td><td>El contenedor lógico y, sobre todo, la unidad de borrado</td></tr>
+      <tr><td><code>azurerm_service_plan</code></td><td>La capacidad de cómputo. SKU <b>F1</b>: gratuita, sin Always On ni slots</td></tr>
+      <tr><td><code>azurerm_linux_web_app</code></td><td>El sitio: runtime de Node, comando de arranque y variables de entorno</td></tr>
+      <tr><td><code>random_string</code></td><td>Sufijo único: el nombre forma parte de un dominio público global</td></tr>
+    </table>
+    <pre>terraform init      <span class="c"># descarga los proveedores</span>
+terraform plan      <span class="c"># muestra QUÉ haría; no cambia nada</span>
+terraform apply     <span class="c"># lo ejecuta</span>
+terraform apply     <span class="c"># otra vez: "No changes" — eso es idempotencia</span></pre>
+    <div class="aviso nota">
+      <b>La frontera.</b> Terraform gestiona la <b>infraestructura</b>; el pipeline publica el
+      <b>contenido</b>. Son dos ciclos de vida distintos: el sitio cambia pocas veces al año, la
+      aplicación varias veces al día. Si se mezclan, cada <code>apply</code> pelea con cada despliegue.
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== CI/CD -->
+<section id="cicd">
+  <h2>El pipeline que publicó esta página</h2>
+  <p class="lead">Dos jobs, un artefacto entre ellos y una condición que protege producción.</p>
+  <div class="panel">
+    <table>
+      <tr><th>Job</th><th>Cuándo corre</th><th>Qué hace</th></tr>
+      <tr><td><code>construir-y-probar</code></td><td>En cada <code>push</code> y en cada pull request</td>
+          <td>checkout → setup-node con caché → <code>npm ci</code> → <code>npm test</code> → cobertura → empaquetar → publicar el artefacto</td></tr>
+      <tr><td><code>desplegar</code></td><td>Solo en <code>main</code>, y solo si el anterior pasó</td>
+          <td>descargar el artefacto → <code>azure/webapps-deploy</code> → prueba de humo contra <code>/health</code></td></tr>
+    </table>
+    <p>Entre los dos jobs viaja el ZIP como artefacto, y ese detalle importa: se despliega
+       exactamente el paquete que pasó las pruebas, no uno reconstruido después.</p>
+    <div class="aviso clave">
+      <b>Autenticación sin Service Principal.</b> Una suscripción Azure for Students no suele
+      permitir crear registros de aplicación en Entra ID, así que no hay Service Principal ni OIDC
+      federado. El despliegue usa el <b>publish profile</b> del sitio, guardado como el secreto
+      <code>AZURE_WEBAPP_PUBLISH_PROFILE</code>. Es una credencial de este sitio y solo de este
+      sitio: quien la tenga puede sobrescribir su contenido, pero no tocar el resto de la suscripción.
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== INSTANCIA -->
+<section id="instancia">
+  <h2>Quién está respondiendo ahora</h2>
+  <p class="lead">Estos valores vienen de <code>GET /api/version</code> en esta misma petición.</p>
+  <div class="panel">
+    <div class="rejilla" id="tarjeta">
+      <div class="dato"><span>Versión</span><strong id="version">…</strong></div>
+      <div class="dato"><span>Node</span><strong id="node">…</strong></div>
+      <div class="dato"><span>Entorno</span><strong id="entorno">…</strong></div>
+      <div class="dato"><span>Sitio</span><strong id="sitio">…</strong></div>
+      <div class="dato"><span>Instancia</span><strong id="instancia-id">…</strong></div>
+      <div class="dato"><span>Región</span><strong id="region">…</strong></div>
+      <div class="dato"><span>Uptime</span><strong id="uptime">…</strong></div>
+    </div>
+    <div class="botones"><button onclick="cargarVersion()">Volver a consultar</button></div>
+    <div class="aviso">
+      <b>Cómo leer esta tarjeta.</b> <code>sitio</code>, <code>instancia</code> y
+      <code>region</code> salen de las variables <code>WEBSITE_SITE_NAME</code>,
+      <code>WEBSITE_INSTANCE_ID</code> y <code>REGION_NAME</code>, que <b>solo</b> existen dentro de
+      App Service. Si dicen <code>local</code>, esta página se está sirviendo desde su máquina; si
+      traen valores reales, está viendo el resultado del despliegue.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <!-- ► SU NOMBRE (2 de 2) -->
+  <p>Laboratorio 5 · Nombre Apellido · Escuela Colombiana de Ingeniería Julio Garavito</p>
+  <p>Maestría en Ingeniería de Software — Cloud Computing y DevOps · PEMU 2026</p>
+</footer>
+
+<script>
+function pinta(id, valor){ const e = document.getElementById(id); if (e) e.textContent = valor; }
+
+async function cargarVersion(){
+  try{
+    const [v, h] = await Promise.all([
+      fetch('/api/version').then(r => r.json()),
+      fetch('/health').then(r => r.json())
+    ]);
+    pinta('version', v.version);   pinta('node', v.node);
+    pinta('entorno', v.entorno);   pinta('sitio', v.sitio);
+    pinta('instancia-id', v.instancia); pinta('region', v.region);
+    pinta('uptime', h.uptimeSegundos + ' s');
+    pinta('chip-version', 'v' + v.version); pinta('chip-node', v.node);
+    pinta('chip-sitio', v.sitio);           pinta('chip-entorno', v.entorno);
+  }catch(e){
+    pinta('version', 'sin respuesta');
+  }
+}
+
+function mostrar(estado, cuerpo){
+  document.getElementById('salida').textContent =
+    'HTTP ' + estado + '\n' + JSON.stringify(cuerpo, null, 2);
+}
+
+async function llamar(ruta){
+  const r = await fetch(ruta);
+  mostrar(r.status, await r.json());
+}
+
+async function enviar(nombre, notas){
+  const r = await fetch('/api/estudiantes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, notas })
+  });
+  mostrar(r.status, await r.json());
+}
+
+function registrar(){
+  const nombre = document.getElementById('nombre').value;
+  const notas = document.getElementById('notas').value
+    .split(',').map(t => parseFloat(t.trim())).filter(n => !Number.isNaN(n));
+  enviar(nombre, notas);
+}
+
+function invalido(){ enviar('Laura Díaz', [4.0, 7.5]); }
+
+cargarVersion();
+</script>
+</body>
+</html>

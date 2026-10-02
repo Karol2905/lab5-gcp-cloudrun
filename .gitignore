@@ -1,0 +1,17 @@
+node_modules/
+coverage/
+deploy.zip
+paquete/
+
+# Terraform: el estado guarda valores sensibles y nunca se versiona
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+crash.log
+
+# El publish profile es una credencial: jamas debe llegar al repositorio
+*.PublishSettings
+publish-profile.xml
+.env
