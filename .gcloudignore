@@ -1,0 +1,11 @@
+.git
+.gitignore
+.github/
+infra/
+tests/
+coverage/
+scripts/
+node_modules/
+paquete/
+deploy.zip
+*.md
