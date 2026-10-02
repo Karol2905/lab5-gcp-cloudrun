@@ -53,8 +53,8 @@ app.get('/api/version', (_req, res) => {
     version,
     node: process.version,
     entorno: process.env.NODE_ENV || 'development',
-    sitio: process.env.WEBSITE_SITE_NAME || 'local',
-    instancia: (process.env.WEBSITE_INSTANCE_ID || 'local').substring(0, 12),
+    sitio: process.env.WEBSITE_SITE_NAME || process.env.GAE_SERVICE || 'local',
+    instancia: (process.env.WEBSITE_INSTANCE_ID || process.env.GAE_INSTANCE || 'local').substring(0, 12),
     region: process.env.REGION_NAME || 'local',
   });
 });
