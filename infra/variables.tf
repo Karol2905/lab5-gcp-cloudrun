@@ -1,40 +1,26 @@
-###############################################################################
-# Variables de entrada.
-#
-# Una variable sin default es obligatoria: Terraform la pide o falla. Con
-# default, el valor se puede omitir. Los valores concretos van en
-# terraform.tfvars, que NO se versiona (puede traer datos de la suscripcion).
-###############################################################################
-
-variable "subscription_id" {
-  description = "Id de la suscripcion de Azure. Se obtiene con: az account show --query id -o tsv"
+variable "project_id" {
+  description = "ID del proyecto de GCP"
   type        = string
-}
-
-variable "usuario" {
-  description = "Identificador corto del estudiante; se usa en los nombres de los recursos (solo minusculas y numeros)"
-  type        = string
-
-  validation {
-    condition     = can(regex("^[a-z0-9]{3,12}$", var.usuario))
-    error_message = "Use entre 3 y 12 caracteres, solo minusculas y numeros."
-  }
 }
 
 variable "region" {
-  description = "Region de Azure donde se crean los recursos"
+  description = "Region por defecto del proveedor"
   type        = string
-  default     = "eastus2"
+  default     = "us-central1"
 }
 
-variable "sku_plan" {
-  description = "SKU del App Service Plan. F1 es la capa gratuita."
+variable "region_appengine" {
+  description = "Region de App Engine (no se puede cambiar despues)"
   type        = string
-  default     = "F1"
+  default     = "us-central"
 }
 
-variable "node_version" {
-  description = "Version de Node.js del runtime de App Service"
+variable "github_usuario" {
+  description = "Usuario de GitHub dueno del repositorio"
   type        = string
-  default     = "22-lts"
+}
+
+variable "github_repo" {
+  description = "Nombre del repositorio"
+  type        = string
 }

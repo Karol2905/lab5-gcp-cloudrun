@@ -1,128 +1,124 @@
-###############################################################################
-# Laboratorio 5 - Infraestructura como codigo con Terraform
-#
-# Este archivo describe el ESTADO DESEADO de la infraestructura en Azure.
-# No es un script: no dice "cree", dice "esto debe existir". Terraform compara
-# lo declarado con lo que hay y calcula la diferencia.
-#
-# Se ejecuta desde su maquina con la sesion de Azure CLI (az login). No hace
-# falta un Service Principal, que es justo lo que una suscripcion de estudiante
-# normalmente no permite crear.
-###############################################################################
-
 terraform {
-  required_version = ">= 1.6.0"
-
+  required_version = ">= 1.5"
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
     }
   }
-
-  # El estado queda en local (terraform.tfstate) porque trabajamos solos.
-  # En un equipo real iria en un backend remoto (Azure Storage) con bloqueo,
-  # para que dos personas no apliquen cambios a la vez.
 }
 
-provider "azurerm" {
-  features {}
-
-  # El proveedor toma las credenciales de la sesion de Azure CLI.
-  subscription_id = var.subscription_id
-}
-
-# Sufijo aleatorio: el nombre de una Web App forma parte de un dominio publico
-# (https://NOMBRE.azurewebsites.net) y debe ser unico en todo Azure.
-resource "random_string" "sufijo" {
-  length  = 5
-  special = false
-  upper   = false
+provider "google" {
+  project               = var.project_id
+  region                = var.region
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 locals {
-  nombre_app = "app-notas-${var.usuario}-${random_string.sufijo.result}"
+  # Cuenta de servicio por defecto de App Engine (existe cuando se crea la app).
+  appspot_sa = "${var.project_id}@appspot.gserviceaccount.com"
+  repo       = "${var.github_usuario}/${var.github_repo}"
 
-  etiquetas = {
-    curso       = "Cloud Computing y DevOps"
-    laboratorio = "05-app-service-cicd"
-    estudiante  = var.usuario
-    gestion     = "terraform"
+  apis = [
+    "appengine.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "serviceusage.googleapis.com",
+  ]
+
+  # Permisos que Cloud Build necesita para construir la app (el error del despliegue manual).
+  appspot_roles = [
+    "roles/cloudbuild.builds.builder",
+    "roles/storage.admin",
+    "roles/artifactregistry.writer",
+    "roles/logging.logWriter",
+  ]
+
+  # Permisos de la cuenta que despliega desde GitHub Actions.
+  deployer_roles = [
+    "roles/appengine.appAdmin",
+    "roles/cloudbuild.builds.editor",
+    "roles/storage.admin",
+    "roles/serviceusage.serviceUsageConsumer",
+  ]
+}
+
+# 1) APIs del proyecto
+resource "google_project_service" "apis" {
+  for_each           = toset(local.apis)
+  service            = each.value
+  disable_on_destroy = false
+}
+
+# 2) La aplicacion App Engine (equivale al App Service Plan + Web App).
+#    La region no se puede cambiar despues.
+resource "google_app_engine_application" "app" {
+  location_id = var.region_appengine
+  depends_on  = [google_project_service.apis]
+}
+
+resource "google_project_iam_member" "appspot" {
+  for_each   = toset(local.appspot_roles)
+  project    = var.project_id
+  role       = each.value
+  member     = "serviceAccount:${local.appspot_sa}"
+  depends_on = [google_app_engine_application.app]
+}
+
+# 3) Cuenta de servicio que usara el pipeline (reemplaza al publish profile)
+resource "google_service_account" "deployer" {
+  account_id   = "github-deployer"
+  display_name = "Despliegue desde GitHub Actions"
+  depends_on   = [google_project_service.apis]
+}
+
+resource "google_project_iam_member" "deployer" {
+  for_each = toset(local.deployer_roles)
+  project  = var.project_id
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Para desplegar, la cuenta debe poder "actuar como" la cuenta de App Engine.
+resource "google_service_account_iam_member" "deployer_actas" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.appspot_sa}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.deployer.email}"
+  depends_on         = [google_app_engine_application.app]
+}
+
+# 4) Federacion de identidad: GitHub presenta un token, GCP lo valida. Sin secretos.
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github-pool"
+  display_name              = "GitHub Actions"
+  depends_on                = [google_project_service.apis]
+}
+
+resource "google_iam_workload_identity_pool_provider" "github" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-provider"
+  display_name                       = "GitHub OIDC"
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.repository" = "assertion.repository"
+  }
+
+  # Solo tu repositorio puede usar esta federacion.
+  attribute_condition = "assertion.repository == \"${local.repo}\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
 
-# ---------------------------------------------------------------------------
-# Grupo de recursos: el contenedor logico y, sobre todo, la unidad de borrado.
-# Eliminar el grupo elimina todo lo de adentro; es la forma segura de no dejar
-# recursos consumiendo credito.
-# ---------------------------------------------------------------------------
-resource "azurerm_resource_group" "lab" {
-  name     = "rg-lab5-${var.usuario}"
-  location = var.region
-  tags     = local.etiquetas
-}
-
-# ---------------------------------------------------------------------------
-# App Service Plan: la maquina (o la porcion de maquina) donde corren las apps.
-# La SKU F1 es el plan gratuito: 1 GB de RAM, 60 minutos de CPU al dia, sin
-# Always On, sin slots de despliegue, sin escalado. Suficiente para el curso.
-# ---------------------------------------------------------------------------
-resource "azurerm_service_plan" "plan" {
-  name                = "plan-lab5-${var.usuario}"
-  resource_group_name = azurerm_resource_group.lab.name
-  location            = azurerm_resource_group.lab.location
-  os_type             = "Linux"
-  sku_name            = var.sku_plan
-  tags                = local.etiquetas
-}
-
-# ---------------------------------------------------------------------------
-# La Web App: el sitio en si. Vive dentro del plan anterior.
-# ---------------------------------------------------------------------------
-resource "azurerm_linux_web_app" "app" {
-  name                = local.nombre_app
-  resource_group_name = azurerm_resource_group.lab.name
-  location            = azurerm_service_plan.plan.location
-  service_plan_id     = azurerm_service_plan.plan.id
-  https_only          = true
-  tags                = local.etiquetas
-
-  # El pipeline de GitHub Actions se autentica con el publish profile, que usa
-  # autenticacion basica sobre el endpoint SCM. Azure la deja deshabilitada por
-  # omision en suscripciones nuevas; si no se habilita aqui, el despliegue
-  # falla con 401 Unauthorized.
-  webdeploy_publish_basic_authentication_enabled = true
-  ftp_publish_basic_authentication_enabled       = true
-
-  site_config {
-    # Always On no existe en F1: la aplicacion se duerme tras 20 minutos sin
-    # trafico y la primera peticion despues tarda unos segundos.
-    always_on = false
-
-    # El plan gratuito solo ofrece trabajadores de 32 bits. Si se deja en false,
-    # el apply falla.
-    use_32_bit_worker = true
-
-    application_stack {
-      node_version = var.node_version
-    }
-
-    # Comando de arranque. Sin el, App Service intenta adivinar (busca
-    # server.js, index.js o el script start) y no siempre acierta.
-    app_command_line = "node src/server.js"
-  }
-
-  app_settings = {
-    # El paquete ya trae node_modules construido y probado por el pipeline:
-    # se despliega el artefacto, no el codigo fuente. Si se dejara en true,
-    # Oryx volveria a instalar dependencias dentro de App Service y el
-    # resultado podria no ser identico al que se probo.
-    SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
-    NODE_ENV                       = "production"
-    WEBSITE_RUN_FROM_PACKAGE       = "0"
-  }
+resource "google_service_account_iam_member" "wif" {
+  service_account_id = google_service_account.deployer.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${local.repo}"
 }
