@@ -1,6 +1,6 @@
 {
   "name": "portal-notas",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aplicacion de ejemplo del Laboratorio 5 - Azure App Service, IaC y CI/CD",
   "main": "src/server.js",
   "engines": {
