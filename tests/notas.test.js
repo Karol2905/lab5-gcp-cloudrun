@@ -63,7 +63,7 @@ describe('aprobado', () => {
 describe('escalaLetra', () => {
   test.each([
     [5, 'A'],
-    [4.5, 'Z'],
+    [4.5, 'A'],
     [4.49, 'B'],
     [4, 'B'],
     [3.5, 'C'],
